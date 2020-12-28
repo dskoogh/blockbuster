@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="./d3/d3.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+    <title>Document</title>
+  </head>
+
+  <body>
+    <script>
+      let DIR = {
+        UP: 0,
+        RIGHT: 1,
+        DOWN: 2,
+        LEFT: 3,
+      };
+      let framerate = 200;
+      let updatePace = 40;
+      let weaponIncreasement = 2;
+      let threshold = 20;
+      let stop = true;
+
+      let warrior;
+      var warriorData = [
+        {
+          x: screen.width / 2,
+          y: screen.height / 2,
+          size: 40,
+          color: "green",
+        },
+      ];
+
+      let weapons;
+      var weaponData = [];
+
+      let enemyData = [];
+
+      var track = [
+        {
+          x: 50,
+          y: 50,
+          width: 800,
+          height: screen.height / 2,
+        },
+      ];
+      let direction = DIR.UP;
+
+      const canvas = d3
+        .select("body")
+        .append("svg")
+        .attr("width", "100%")
+        .attr("height", "98vh");
+
+      prepare();
+      run();
+
+      function run() {
+        updateMovement();
+      }
+
+      function updateMovement() {
+        if (direction === DIR.UP) warriorData[0].y -= updatePace;
+        if (direction === DIR.DOWN) warriorData[0].y += updatePace;
+        if (direction === DIR.LEFT) warriorData[0].x -= updatePace;
+        if (direction === DIR.RIGHT) warriorData[0].x += updatePace;
+
+        weaponData
+          .filter((weapon) => checkIfCollide(weapon, warriorData[0]))
+          .map((weapon) => addTowarrior(weapon));
+
+        seeIfShotHasHit();
+        seeIfEnemyHitUs();
+
+        updatewarrior();
+        updateWeapons();
+        updateEnemies();
+
+        if (!stop) setTimeout(() => updateMovement(), framerate);
+      }
+
+      function seeIfEnemyHitUs() {
+        console.log("Enemies:", enemyData[0]);
+        console.log("Warrior:", warriorData[0]);
+        enemyData.forEach(enemy => {
+          if (checkIfCollide(enemy, warriorData[0])) {
+            console.log("Game over");
+          }
+        });
+      }
+
+      function seeIfShotHasHit() {
+        weaponData
+          .filter((weapon) => weapon.fire)
+          .forEach((weapon) => {
+            enemyData.forEach((enemy) => {
+              if (checkIfCollide(enemy, weapon)) {
+                console.log("Shot pos:", weapon);
+                console.log("Enemy pos:", enemy);
+                console.log("Enemy shot");
+                enemy.down = true;
+              }
+            });
+          });
+      }
+
+      function checkIfCollide(one, two) {
+        return (
+          compareWithThreshold(one.x, two.x) &&
+          compareWithThreshold(one.y, two.y)
+        );
+
+        // if (isClose) {
+        //   console.log("Close!");
+        //   addTowarrior(weapon);
+        // }
+      }
+
+      function addTowarrior(weapon) {
+        if (weapon.attached) {
+          return;
+        }
+
+        if (!warriorData[1]) {
+          weapon.color = "blue";
+          weapon.attached = true;
+          warriorData[1] = weapon;
+        } else if (!warriorData[2]) {
+          weapon.color = "blue";
+          weapon.attached = true;
+          warriorData[2] = weapon;
+        } else if (!warriorData[3]) {
+          weapon.color = "blue";
+          weapon.attached = true;
+          warriorData[3] = weapon;
+        } else if (!warriorData[4]) {
+          weapon.color = "blue";
+          weapon.attached = true;
+          warriorData[4] = weapon;
+        }
+      }
+
+      function compareWithThreshold(weapon, warrior) {
+        let comparison = weapon - warrior;
+        let negativeThres = threshold * -1;
+        if (comparison < threshold && comparison > negativeThres) {
+          return true;
+        }
+        return false;
+      }
+
+      function updateEnemies() {
+        let e = d3.selectAll(".enemy");
+        e.transition()
+          .duration(framerate)
+          .attr("x", (d) => {
+            if (d.direction === "right" || d.direction === "left") {
+              d.x = d.x + updatePace;
+            }
+            return d.x;
+          })
+          .attr("y", (d) => {
+            if (d.direction === "up" || d.direction === "down") {
+              d.y = d.y + updatePace;
+            }
+            return d.y;
+          })
+          .attr("class", (d) => (d.down ? "down" : "enemy"));
+
+        d3.selectAll(".down").remove();
+      }
+
+      function updatewarrior() {
+        warrior
+          .transition()
+          .duration(framerate)
+          .attr("cx", (d) => d.x)
+          .attr("cy", (d) => d.y);
+      }
+
+      function updateWeapons() {
+        weapons
+          .attr("class", (d) => (d.attached ? "attached" : "unattached"))
+          .style("fill", (d) => d.color);
+
+        d3.selectAll(".attached")
+          .transition()
+          .duration(framerate)
+          .attr("x", (d) => weaponPlacementX(d))
+          .attr("y", (d) => weaponPlacementY(d))
+          .style("fill", (d) => d.color);
+      }
+
+      function weaponPlacementX(weapon) {
+        if (weapon.fire !== undefined) {
+          if (weapon.fire === 2) {
+            weapon.x = weapon.x + updatePace * weaponIncreasement;
+            return weapon.x;
+          }
+          if (weapon.fire === 4) {
+            weapon.x = weapon.x - updatePace * weaponIncreasement;
+            return weapon.x;
+          }
+          return weapon.x;
+        }
+
+        if (warriorData[1] && warriorData[1].id === weapon.id) {
+          weapon.x = warriorData[0].x - 5;
+          return weapon.x;
+        } else if (warriorData[2] && warriorData[2].id === weapon.id) {
+          weapon.x = warriorData[0].x + 20;
+          return weapon.x;
+        } else if (warriorData[3] && warriorData[3].id === weapon.id) {
+          weapon.x = warriorData[0].x - 5;
+          return weapon.x;
+        } else if (warriorData[4] && warriorData[4].id === weapon.id) {
+          weapon.x = warriorData[0].x - 30;
+          return weapon.x;
+        } else {
+          return weapon.x;
+        }
+      }
+
+      function weaponPlacementY(weapon) {
+        if (weapon.fire !== undefined) {
+          if (weapon.fire === 1) {
+            weapon.y = weapon.y - updatePace * weaponIncreasement;
+            return weapon.y;
+          }
+          if (weapon.fire === 3) {
+            weapon.y = weapon.y + updatePace * weaponIncreasement;
+            return weapon.y;
+          }
+          return weapon.y;
+        }
+
+        if (warriorData[1] && warriorData[1].id === weapon.id) {
+          weapon.y = warriorData[0].y - 30;
+          return weapon.y;
+        } else if (warriorData[2] && warriorData[2].id === weapon.id) {
+          weapon.y = warriorData[0].y - 5;
+          return weapon.y;
+        } else if (warriorData[3] && warriorData[3].id === weapon.id) {
+          weapon.y = warriorData[0].y + 20;
+          return weapon.y;
+        } else if (warriorData[4] && warriorData[4].id === weapon.id) {
+          weapon.y = warriorData[0].y - 5;
+          return weapon.y;
+        } else {
+          return weapon.y;
+        }
+      }
+
+      function isOnweapon(id) {
+        if (
+          (warriorData[1] && warriorData[1].id === id) ||
+          (warriorData[2] && warriorData[2].id === id) ||
+          (warriorData[3] && warriorData[3].id === id) ||
+          (warriorData[4] && warriorData[4].id === id)
+        ) {
+          return true;
+        }
+        return false;
+      }
+
+      function fireWeapon(weaponIndex) {
+        if (warriorData[weaponIndex]) {
+          let w = warriorData[weaponIndex];
+          let weapon = weaponData.filter((weapon) => weapon.id === w.id)[0];
+          weapon.fire = weaponIndex;
+          weapon.x = w.x;
+          weapon.y = w.y;
+
+          warriorData[weaponIndex] = undefined;
+        }
+      }
+
+      function prepare() {
+        createWeapons(10);
+        buildWarrior();
+        buildWeapons();
+        assignMovement();
+        // addMoreWeapons();
+        setTimeout(() => createEnemies(1), 1000);
+      }
+
+      function createEnemies(level) {
+        console.log("Creating enemies");
+        levelOneEnemies();
+        buildEnemies();
+      }
+
+      function levelOneEnemies() {
+        enemyData.push({
+          id: Math.floor(Math.random() * 10000),
+          x: -400,
+          y: 100,
+          direction: "right",
+          color: "yellow",
+        },{
+          id: Math.floor(Math.random() * 10000),
+          x: screen.width / 2,
+          y: -400,
+          direction: "down",
+          color: "yellow",
+        });
+      }
+
+      function addMoreWeapons() {
+        createWeapons(5);
+        buildWeapons();
+        setTimeout(() => addMoreWeapons(), 10000);
+      }
+
+      function createWeapons(numberOfWeapons) {
+        for (let i = 0; i < numberOfWeapons; i++) {
+          weaponData.push({
+            id: Math.floor(Math.random() * 10000),
+            x: Math.floor(Math.random() * screen.width),
+            y: Math.floor((Math.random() * screen.height) / 2),
+            size: 10,
+            color: "red",
+          });
+        }
+        console.log("Data:", weaponData);
+      }
+
+      function buildWarrior() {
+        warrior = canvas
+          .selectAll(".warrior")
+          .data(warriorData)
+          .enter()
+          .append("circle")
+          .attr("cx", (d) => d.x)
+          .attr("cy", (d) => d.y)
+          .attr("r", (d) => d.size / 2)
+          .style("fill", (d) => d.color);
+      }
+
+      function buildWeapons() {
+        weapons = canvas
+          .selectAll(".weapons")
+          .data(weaponData)
+          .enter()
+          .append("rect")
+          .attr("x", (d) => d.x)
+          .attr("y", (d) => d.y)
+          .attr("height", (d) => d.size)
+          .attr("width", (d) => d.size)
+          .style("fill", (d) => d.color)
+          .classed("unattached", true);
+      }
+
+      function buildEnemies() {
+        enemies = canvas
+          .selectAll(".enemies")
+          .data(enemyData)
+          .enter()
+          .append("rect")
+          .attr("x", (enemy) => enemy.x)
+          .attr("y", (enemy) => enemy.y)
+          .attr("height", 100)
+          .attr("width", 100)
+          .style("fill", (d) => d.color)
+          .classed("enemy", true);
+      }
+
+      function assignMovement() {
+        document.addEventListener("keydown", (event) => {
+          direction = generateNewDirection(event.keyCode);
+          fireWeapons(event.keyCode);
+        });
+      }
+
+      fireWeapons = (key) => {
+        if (key === 87) {
+          fireWeapon(1);
+        }
+        if (key === 68) {
+          fireWeapon(2);
+        }
+        if (key === 83) {
+          fireWeapon(3);
+        }
+        if (key === 65) {
+          fireWeapon(4);
+        }
+        if (key === 32) {
+          fireWeapon(1);
+          fireWeapon(2);
+          fireWeapon(3);
+          fireWeapon(4);
+        }
+      };
+
+      generateNewDirection = (key) => {
+        if (key === 81) stop = true;
+        if (key === 38 && direction != DIR.DOWN) return DIR.UP;
+        if (key === 37 && direction != DIR.RIGHT) return DIR.LEFT;
+        if (key === 39 && direction != DIR.LEFT) return DIR.RIGHT;
+        if (key === 40 && direction != DIR.UP) return DIR.DOWN;
+        if (stop && key === 80) {
+          stop = false;
+          updateMovement();
+        }
+        return direction;
+      };
+    </script>
+  </body>
+</html>
