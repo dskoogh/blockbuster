@@ -29,6 +29,7 @@
           y: screen.height / 2,
           size: 40,
           color: "purple",
+          circle: true
         },
       ];
 
@@ -70,51 +71,44 @@
           .filter((weapon) => checkIfCollide(weapon, warriorData[0]))
           .map((weapon) => addTowarrior(weapon));
 
-        seeIfShotHasHit();
-        seeIfEnemyHitUs();
+        enemyHit();
+        warriorHit();
 
-        updatewarrior();
+        updateWarrior();
         updateWeapons();
         updateEnemies();
 
         if (!stop) setTimeout(() => updateMovement(), framerate);
       }
 
-      function seeIfEnemyHitUs() {
-        console.log("Enemies:", enemyData[0]);
-        console.log("Warrior:", warriorData[0]);
-        enemyData.forEach(enemy => {
-          if (checkIfCollide(enemy, warriorData[0])) {
-            console.log("Game over");
-          }
-        });
-      }
-
-      function seeIfShotHasHit() {
+      function enemyHit() {
         weaponData
           .filter((weapon) => weapon.fire)
           .forEach((weapon) => {
             enemyData.forEach((enemy) => {
-              if (checkIfCollide(enemy, weapon)) {
-                console.log("Shot pos:", weapon);
-                console.log("Enemy pos:", enemy);
-                console.log("Enemy shot");
-                enemy.down = true;
-              }
+              if (checkIfCollide(enemy, weapon)) enemy.down = true;
             });
           });
       }
 
-      function checkIfCollide(one, two) {
-        return (
-          compareWithThreshold(one.x, two.x) &&
-          compareWithThreshold(one.y, two.y)
-        );
+      function warriorHit() {
+        enemyData.forEach(enemy => {
+          if (checkIfCollide(enemy, warriorData[0])) stop = true;
+        });
+      }
 
-        // if (isClose) {
-        //   console.log("Close!");
-        //   addTowarrior(weapon);
-        // }
+      function checkIfCollide(one, two) {
+        let size = one.size > two.size ? one.size : two.size;
+        return (
+          compareWithThreshold(
+            one.circle ? one.x : one.x + (one.size / 2),
+            two.circle ? two.x : two.x + (two.size / 2),
+            size) &&
+          compareWithThreshold(
+            one.circle ? one.y : one.y + (one.size / 2),
+            two.circle ? two.y : two.y + (two.size / 2),
+            size)
+        );
       }
 
       function addTowarrior(weapon) {
@@ -141,8 +135,16 @@
         }
       }
 
-      function compareWithThreshold(weapon, warrior) {
+      function compareWithThreshold(weapon, warrior, size) {
         let comparison = weapon - warrior;
+        if (size) {
+          let negativeThres = size * -1;
+          if (comparison < size && comparison > negativeThres) {
+            return true;
+          }
+          return false; 
+        }
+        console.log("not size");
         let negativeThres = threshold * -1;
         if (comparison < threshold && comparison > negativeThres) {
           return true;
@@ -153,25 +155,30 @@
       function updateEnemies() {
         let e = d3.selectAll(".enemy");
         e.transition()
+          .attr("class", (d) => (d.down ? "down" : "enemy"))
           .duration(framerate)
           .attr("x", (d) => {
             if (d.direction === "right" || d.direction === "left") {
-              d.x = d.x + updatePace;
+              d.x = d.direction === "right" ? d.x + updatePace : d.x - updatePace;
             }
             return d.x;
           })
           .attr("y", (d) => {
             if (d.direction === "up" || d.direction === "down") {
-              d.y = d.y + updatePace;
+              d.y = d.direction === "down" ? d.y + updatePace : d.y - updatePace;
             }
             return d.y;
-          })
-          .attr("class", (d) => (d.down ? "down" : "enemy"));
+          });
 
         d3.selectAll(".down").remove();
+        removeDroppedEnemies();
       }
 
-      function updatewarrior() {
+      function removeDroppedEnemies() {
+        enemyData = enemyData.filter(e => !e.down);
+      }
+
+      function updateWarrior() {
         warrior
           .transition()
           .duration(framerate)
@@ -286,7 +293,6 @@
       }
 
       function createEnemies(level) {
-        console.log("Creating enemies");
         levelOneEnemies();
         buildEnemies();
       }
@@ -296,13 +302,22 @@
           id: Math.floor(Math.random() * 10000),
           x: -400,
           y: 100,
+          size: 100,
           direction: "right",
           color: "yellow",
         },{
           id: Math.floor(Math.random() * 10000),
           x: screen.width / 2,
           y: -400,
+          size: 100,
           direction: "down",
+          color: "yellow",
+        },{
+          id: Math.floor(Math.random() * 10000),
+          x: screen.width + 400,
+          y: 300,
+          size: 100,
+          direction: "left",
           color: "yellow",
         });
       }
@@ -360,8 +375,8 @@
           .append("rect")
           .attr("x", (enemy) => enemy.x)
           .attr("y", (enemy) => enemy.y)
-          .attr("height", 100)
-          .attr("width", 100)
+          .attr("height", (enemy) => enemy.size)
+          .attr("width", (enemy) => enemy.size)
           .style("fill", (d) => d.color)
           .classed("enemy", true);
       }
